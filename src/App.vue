@@ -1,7 +1,8 @@
 <template>
   <div class="relative bg-parchment text-obsidian font-mono min-h-screen">
     <div class="scroll-progress" aria-hidden="true" :style="{ width: `${scrollPercent}%` }"></div>
-    <div class="grid-guide" aria-hidden="true"></div>
+    <div class="grid-guide" aria-hidden="true" :style="{ transform: `translate(${parallaxX}px, ${parallaxY}px)` }"></div>
+    <div class="spotlight" aria-hidden="true" :style="{ left: `${mouseRawX}px`, top: `${mouseRawY}px` }"></div>
 
     <aside class="telemetry telemetry-top" aria-live="polite">
       <p>Status: <span>{{ currentSection }}</span></p>
@@ -13,7 +14,7 @@
     </aside>
 
     <main>
-      <section id="hero" class="panel panel-hero" data-label="01_The_Hero">
+      <section id="hero" class="panel panel-hero reveal-item" data-label="01_The_Hero">
         <p class="section-id">01 // The Hero</p>
         <div class="hero-block">
           <h1 class="outline-title" data-fillable="true" :style="{ backgroundSize: `${outlineFill}% 100%` }">
@@ -27,7 +28,7 @@
         </div>
       </section>
 
-      <section id="repository" class="panel" data-label="02_The_Repository">
+      <section id="repository" class="panel reveal-item" data-label="02_The_Repository">
         <p class="section-id">02 // The Repository</p>
         <header class="panel-header">
           <h2>Technical Spec Sheets</h2>
@@ -46,7 +47,7 @@
         <p v-else class="empty-state">Project entries pending. Technical spec sheets will be added soon.</p>
       </section>
 
-      <section id="systems" class="panel" data-label="03_The_Skillsets">
+      <section id="systems" class="panel reveal-item" data-label="03_The_Skillsets">
         <p class="section-id">03 // The Skillsets</p>
         <header class="panel-header">
           <h2>Data Clusters</h2>
@@ -79,7 +80,7 @@
         </div>
       </section>
 
-      <footer id="terminal" class="terminal-footer" data-label="04_Terminal_Output">
+      <footer id="terminal" class="terminal-footer reveal-item" data-label="04_Terminal_Output">
         <p class="section-id section-id-light">04 // Terminal Output</p>
         <div class="terminal-window">
           <div class="terminal-topbar">
@@ -113,7 +114,11 @@ const currentSection = ref("01_The_Hero");
 const scrollPercent = ref(0);
 const mouseX = ref("0000");
 const mouseY = ref("0000");
+const mouseRawX = ref(0);
+const mouseRawY = ref(0);
 const outlineFill = ref(0);
+const parallaxX = ref(0);
+const parallaxY = ref(0);
 
 const fullTypingMessage = ">_ Developer|";
 const typedLine = ref("");
@@ -123,6 +128,7 @@ const sectionNodes = ref([]);
 const fillableTitle = ref(null);
 
 let typingTimeout;
+let revealObserver;
 
 const paddedScroll = computed(() => `${String(scrollPercent.value).padStart(3, "0")}%`);
 
@@ -162,8 +168,12 @@ function onScroll() {
 }
 
 function onMouseMove(event) {
+  mouseRawX.value = event.clientX;
+  mouseRawY.value = event.clientY;
   mouseX.value = padNumber(event.clientX);
   mouseY.value = padNumber(event.clientY);
+  parallaxX.value = (event.clientX - window.innerWidth / 2) * -0.006;
+  parallaxY.value = (event.clientY - window.innerHeight / 2) * -0.006;
 }
 
 function typeNext() {
@@ -191,6 +201,17 @@ async function copyEmail() {
 onMounted(() => {
   sectionNodes.value = [...document.querySelectorAll("[data-label]")];
   fillableTitle.value = document.querySelector("[data-fillable]");
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+        }
+      });
+    },
+    { threshold: 0.18, rootMargin: "0px 0px -10% 0px" }
+  );
+  document.querySelectorAll(".reveal-item").forEach((el) => revealObserver.observe(el));
   typeNext();
   onScroll();
   window.addEventListener("scroll", onScroll, { passive: true });
@@ -200,6 +221,9 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener("scroll", onScroll);
   window.removeEventListener("mousemove", onMouseMove);
+  if (revealObserver) {
+    revealObserver.disconnect();
+  }
 
   if (typingTimeout) {
     clearTimeout(typingTimeout);
